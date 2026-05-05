@@ -9,3 +9,4 @@ Interface Streamlit d’aide au choix :
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+pip install fpdf
