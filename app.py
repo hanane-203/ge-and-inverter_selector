@@ -1,5 +1,10 @@
 import streamlit as st
 import pandas as pd
+from fpdf import FPDF
+import tempfile
+import base64
+import re
+from datetime import datetime
 
 # =========================================================
 # CONFIG PAGE
@@ -15,19 +20,14 @@ st.set_page_config(
 # =========================================================
 if "resultat_final" not in st.session_state:
     st.session_state.resultat_final = None
-
 if "choix_confirme" not in st.session_state:
     st.session_state.choix_confirme = False
-
 if "groupe_confirme" not in st.session_state:
     st.session_state.groupe_confirme = None
-
 if "inverseur_confirme" not in st.session_state:
     st.session_state.inverseur_confirme = False
-
 if "inverseur_final" not in st.session_state:
     st.session_state.inverseur_final = None
-
 if "choix_inverseur_resultat" not in st.session_state:
     st.session_state.choix_inverseur_resultat = None
 
@@ -105,91 +105,139 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
+# BOUTON DE RÉINITIALISATION EN HAUT À DROITE
+# =========================================================
+col_reset1, col_reset2 = st.columns([6, 1])
+with col_reset2:
+    if st.button("🔄 Réinitialiser", use_container_width=True):
+        st.session_state.resultat_final = None
+        st.session_state.choix_confirme = False
+        st.session_state.groupe_confirme = None
+        st.session_state.inverseur_confirme = False
+        st.session_state.inverseur_final = None
+        st.session_state.choix_inverseur_resultat = None
+        st.rerun()
+
+# =========================================================
+# FONCTION DE GÉNÉRATION PDF (CORRIGÉE)
+# =========================================================
+def generer_pdf(entrees, resultats_groupe, resultats_inverseur):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, "PowerSwitch Decision - Rapport d'etude", ln=True, align="C")
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, f"Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True)
+    pdf.ln(10)
+
+    def clean_html(text):
+        if not isinstance(text, str):
+            return str(text)
+        text = re.sub(r'<b>|</b>', '', text)
+        text = re.sub(r'<br\s*/?>', ' ', text)
+        text = re.sub(r'<[^>]+>', '', text)
+        # Replace multiple spaces
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "1. Parametres d'entree", ln=True)
+    pdf.set_font("Arial", "", 11)
+    for k, v in entrees.items():
+        pdf.cell(0, 8, f"{k} : {clean_html(v)}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "2. Resultats - Groupe electrogene", ln=True)
+    pdf.set_font("Arial", "", 11)
+    for k, v in resultats_groupe.items():
+        pdf.cell(0, 8, f"{k} : {clean_html(v)}", ln=True)
+    pdf.ln(5)
+
+    if resultats_inverseur:
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 10, "3. Resultats - Inverseur de source", ln=True)
+        pdf.set_font("Arial", "", 11)
+        for k, v in resultats_inverseur.items():
+            pdf.cell(0, 8, f"{k} : {clean_html(v)}", ln=True)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        pdf.output(tmp.name)
+        tmp_path = tmp.name
+
+    with open(tmp_path, "rb") as f:
+        data = f.read()
+    b64 = base64.b64encode(data).decode()
+    href = f'<a href="data:application/octet-stream;base64,{b64}" download="rapport_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf">📄 Télécharger le rapport PDF</a>'
+    return href
+
+# =========================================================
 # DONNEES
 # =========================================================
-NIVEAU_SCORE = {
-    "Aucun": 0,
-    "Secours": 1,
-    "Sécurité": 2,
-    "Temps Zéro": 3
-}
-SCORE_NIVEAU = {v: k for k, v in NIVEAU_SCORE.items()}
+NIVEAU_SCORE = {"Aucun":0, "Secours":1, "Sécurité":2, "Temps Zéro":3}
+SCORE_NIVEAU = {v:k for k,v in NIVEAU_SCORE.items()}
 
 erp_types = {
-    "U - Santé (Hôpitaux)": "U",
-    "J - Structures pour personnes âgées / handicapées": "J",
-    "O - Hôtels / Pensions": "O",
-    "Rh - Internats": "Rh",
-    "OA - Hôtels d'altitude": "OA",
-    "L - Salles de spectacles / auditions / conférences": "L",
-    "P - Salles de danse / jeux": "P",
-    "Y - Musées": "Y",
-    "X - Établissements sportifs": "X",
-    "V - Lieux de culte": "V",
-    "M - Magasins / centres commerciaux": "M",
-    "N - Restaurants / Cafés": "N",
-    "W - Bureaux / banques": "W",
-    "S - Bibliothèques / archives": "S",
-    "T - Salles d'exposition": "T",
-    "GA - Gares": "GA",
-    "PS - Parkings couverts": "PS",
-    "EF - Établissements flottants": "EF",
-    "SG - Structures gonflables": "SG",
-    "BM - Bains maures": "BM",
-    "IGH - Immeubles de grande hauteur": "IGH",
-    "MIL - Défense / installations sensibles": "MIL",
-    "AER - Aéroports": "AER",
+    "U - Santé (Hôpitaux)": "U", "J - Structures pour personnes âgées / handicapées": "J",
+    "O - Hôtels / Pensions": "O", "Rh - Internats": "Rh", "OA - Hôtels d'altitude": "OA",
+    "L - Salles de spectacles / auditions / conférences": "L", "P - Salles de danse / jeux": "P",
+    "Y - Musées": "Y", "X - Établissements sportifs": "X", "V - Lieux de culte": "V",
+    "M - Magasins / centres commerciaux": "M", "N - Restaurants / Cafés": "N", "W - Bureaux / banques": "W",
+    "S - Bibliothèques / archives": "S", "T - Salles d'exposition": "T", "GA - Gares": "GA",
+    "PS - Parkings couverts": "PS", "EF - Établissements flottants": "EF", "SG - Structures gonflables": "SG",
+    "BM - Bains maures": "BM", "IGH - Immeubles de grande hauteur": "IGH",
+    "MIL - Défense / installations sensibles": "MIL", "AER - Aéroports": "AER",
 }
-
 TYPES_SPECIAUX = {"IGH", "MIL", "AER"}
 TYPES_TEMPS_ZERO_GLOBAL = {"MIL", "AER"}
 
 SEUILS = {
-    "U": 20, "J": 25, "O": 100, "Rh": 100, "OA": 20, "L": 50, "P": 120,
-    "Y": 200, "X": 200, "V": 300, "M": 200, "N": 200, "W": 200, "S": 200,
-    "T": 200, "GA": 200, "PS": 300, "EF": 100, "SG": 50, "BM": 100,
+    "U":20, "J":25, "O":100, "Rh":100, "OA":20, "L":50, "P":120,
+    "Y":200, "X":200, "V":300, "M":200, "N":200, "W":200, "S":200,
+    "T":200, "GA":200, "PS":300, "EF":100, "SG":50, "BM":100,
 }
 EFFECTIF_MIN_VALABLE = SEUILS.copy()
 
 BASE_ERP = [
-    ["U", "Santé (Hôpitaux)", "Sécurité", "Les fonctions de sécurité des personnes imposent au minimum une alimentation de sécurité. Les charges vitales non interruptibles doivent être traitées par UPS / ASI locale."],
-    ["J", "Personnes âgées / handicapées", "Sécurité", "Protection du public vulnérable et continuité des fonctions de sécurité."],
-    ["O", "Hôtels / Pensions", "Sécurité", "Public endormi : fonctions de sécurité à maintenir."],
-    ["Rh", "Internats", "Sécurité", "Public endormi et sécurité incendie."],
-    ["OA", "Hôtels d'altitude", "Sécurité", "Isolement et protection des occupants."],
-    ["L", "Salles de spectacles", "Sécurité", "Évacuation, balisage, SSI, désenfumage."],
-    ["P", "Salles de danse / jeux", "Sécurité", "Évacuation et protection des personnes."],
-    ["Y", "Musées", "Secours", "Continuité d'exploitation possible ; fonctions sécurité à vérifier séparément."],
-    ["X", "Établissements sportifs", "Secours", "Continuité fonctionnelle ; sécurité à préciser selon équipements."],
-    ["V", "Lieux de culte", "Aucun", "Pas de besoin systématique global ; analyser les fonctions réelles."],
-    ["M", "Magasins / centres commerciaux", "Sécurité", "Dès qu'il existe désenfumage / SSI / éclairage de sécurité, la sécurité domine."],
-    ["N", "Restaurants / Cafés", "Secours", "Continuité d'exploitation avant tout, sauf fonctions de sécurité spécifiques."],
-    ["W", "Bureaux / banques", "Secours", "Continuité d'exploitation ; les charges non interruptibles se traitent localement par UPS / ASI."],
-    ["S", "Bibliothèques / archives", "Secours", "Conservation / sûreté / exploitation ; sécurité selon fonctions présentes."],
-    ["T", "Salles d'exposition", "Sécurité", "Présence du public et fonctions sécurité fréquentes."],
-    ["GA", "Gares", "Sécurité", "Signalisation, évacuation, désenfumage, sécurité publique."],
-    ["PS", "Parkings couverts", "Sécurité", "Extraction, détection gaz, désenfumage."],
-    ["EF", "Établissements flottants", "Sécurité", "Fonctions vitales de sécurité."],
-    ["SG", "Structures gonflables", "Sécurité", "Maintien des équipements de sécurité structurelle."],
-    ["BM", "Bains maures", "Secours", "Continuité utile, sécurité à vérifier selon installations."],
-    ["IGH", "Immeubles de grande hauteur", "Sécurité", "Le niveau minimal est élevé ; analyser aussi la redondance et les fonctions critiques."],
-    ["MIL", "Défense / installations sensibles", "Temps Zéro", "Hypothèse haute retenue dans cette version : continuité maximale globale."],
-    ["AER", "Aéroports", "Temps Zéro", "Hypothèse haute retenue dans cette version : continuité maximale globale pour fonctions critiques."],
+    ["U","Santé (Hôpitaux)","Sécurité","Les fonctions de sécurité des personnes imposent au minimum une alimentation de sécurité. Les charges vitales non interruptibles doivent être traitées par UPS / ASI locale."],
+    ["J","Personnes âgées / handicapées","Sécurité","Protection du public vulnérable et continuité des fonctions de sécurité."],
+    ["O","Hôtels / Pensions","Sécurité","Public endormi : fonctions de sécurité à maintenir."],
+    ["Rh","Internats","Sécurité","Public endormi et sécurité incendie."],
+    ["OA","Hôtels d'altitude","Sécurité","Isolement et protection des occupants."],
+    ["L","Salles de spectacles","Sécurité","Évacuation, balisage, SSI, désenfumage."],
+    ["P","Salles de danse / jeux","Sécurité","Évacuation et protection des personnes."],
+    ["Y","Musées","Secours","Continuité d'exploitation possible ; fonctions sécurité à vérifier séparément."],
+    ["X","Établissements sportifs","Secours","Continuité fonctionnelle ; sécurité à préciser selon équipements."],
+    ["V","Lieux de culte","Aucun","Pas de besoin systématique global ; analyser les fonctions réelles."],
+    ["M","Magasins / centres commerciaux","Sécurité","Dès qu'il existe désenfumage / SSI / éclairage de sécurité, la sécurité domine."],
+    ["N","Restaurants / Cafés","Secours","Continuité d'exploitation avant tout, sauf fonctions de sécurité spécifiques."],
+    ["W","Bureaux / banques","Secours","Continuité d'exploitation ; les charges non interruptibles se traitent localement par UPS / ASI."],
+    ["S","Bibliothèques / archives","Secours","Conservation / sûreté / exploitation ; sécurité selon fonctions présentes."],
+    ["T","Salles d'exposition","Sécurité","Présence du public et fonctions sécurité fréquentes."],
+    ["GA","Gares","Sécurité","Signalisation, évacuation, désenfumage, sécurité publique."],
+    ["PS","Parkings couverts","Sécurité","Extraction, détection gaz, désenfumage."],
+    ["EF","Établissements flottants","Sécurité","Fonctions vitales de sécurité."],
+    ["SG","Structures gonflables","Sécurité","Maintien des équipements de sécurité structurelle."],
+    ["BM","Bains maures","Secours","Continuité utile, sécurité à vérifier selon installations."],
+    ["IGH","Immeubles de grande hauteur","Sécurité","Le niveau minimal est élevé ; analyser aussi la redondance et les fonctions critiques."],
+    ["MIL","Défense / installations sensibles","Temps Zéro","Hypothèse haute retenue dans cette version : continuité maximale globale."],
+    ["AER","Aéroports","Temps Zéro","Hypothèse haute retenue dans cette version : continuité maximale globale pour fonctions critiques."],
 ]
-df_erp = pd.DataFrame(BASE_ERP, columns=["Code_type", "Designation", "Niveau_Min_Indicatif", "Justification"])
+df_erp = pd.DataFrame(BASE_ERP, columns=["Code_type","Designation","Niveau_Min_Indicatif","Justification"])
 
 FONCTIONS = [
-    {"Famille": "Sécurité des personnes", "Fonction": "Éclairage de sécurité", "Niveau": "Sécurité", "Reglementaire": "Oui", "Commentaire": "Fonction directement liée à l'évacuation et à la sécurité des personnes.", "Critique_TZ_Local": False},
-    {"Famille": "Sécurité des personnes", "Fonction": "SSI / alarme incendie / CMSI / sonorisation d'évacuation", "Niveau": "Sécurité", "Reglementaire": "Oui", "Commentaire": "Fonction de sécurité incendie.", "Critique_TZ_Local": False},
-    {"Famille": "Sécurité des personnes", "Fonction": "Désenfumage / extraction de fumées", "Niveau": "Sécurité", "Reglementaire": "Oui", "Commentaire": "Équipement participant directement à la sécurité.", "Critique_TZ_Local": False},
-    {"Famille": "Sécurité des personnes", "Fonction": "Pompes incendie / surpresseurs incendie", "Niveau": "Sécurité", "Reglementaire": "Oui", "Commentaire": "Fonctions de lutte incendie.", "Critique_TZ_Local": False},
-    {"Famille": "Charges médicales / vitales", "Fonction": "Bloc opératoire / réanimation / respirateurs / monitoring vital", "Niveau": "Temps Zéro", "Reglementaire": "Oui / très critique", "Commentaire": "Charge critique nécessitant une continuité sans coupure. Pour un hôpital, cela implique une UPS locale en complément du GE de sécurité.", "Critique_TZ_Local": True},
-    {"Famille": "Charges critiques exploitation", "Fonction": "Serveurs critiques / contrôle-commande / supervision centrale", "Niveau": "Temps Zéro", "Reglementaire": "Selon usage", "Commentaire": "Continuité sans interruption parfois nécessaire ; UPS locale recommandée hors MIL / AER.", "Critique_TZ_Local": True},
-    {"Famille": "Charges critiques exploitation", "Fonction": "Tour de contrôle / balisage / fonctions aéroportuaires critiques", "Niveau": "Temps Zéro", "Reglementaire": "Oui selon fonction", "Commentaire": "Très forte criticité fonctionnelle.", "Critique_TZ_Local": True},
-    {"Famille": "Exploitation", "Fonction": "Froid / chambres froides / conservation", "Niveau": "Secours", "Reglementaire": "Non en général", "Commentaire": "Continuité d'exploitation, mais pas forcément sécurité des personnes.", "Critique_TZ_Local": False},
-    {"Famille": "Exploitation", "Fonction": "Ventilation utile / climatisation utile / process", "Niveau": "Secours", "Reglementaire": "Non en général", "Commentaire": "Important pour exploitation ou confort technique.", "Critique_TZ_Local": False},
-    {"Famille": "Exploitation", "Fonction": "Encaissement / informatique non vitale / exploitation bureautique", "Niveau": "Secours", "Reglementaire": "Non", "Commentaire": "Continuité souhaitée sans être une fonction de sécurité.", "Critique_TZ_Local": False},
-    {"Famille": "Exploitation", "Fonction": "Vidéosurveillance / sûreté / anti-intrusion", "Niveau": "Secours", "Reglementaire": "Selon site", "Commentaire": "Peut être important sans relever systématiquement de la sécurité incendie.", "Critique_TZ_Local": False},
+    {"Famille":"Sécurité des personnes","Fonction":"Éclairage de sécurité","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonction directement liée à l'évacuation et à la sécurité des personnes.","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"SSI / alarme incendie / CMSI / sonorisation d'évacuation","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonction de sécurité incendie.","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"Désenfumage / extraction de fumées","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Équipement participant directement à la sécurité.","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"Pompes incendie / surpresseurs incendie","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonctions de lutte incendie.","Critique_TZ_Local":False},
+    {"Famille":"Charges médicales / vitales","Fonction":"Bloc opératoire / réanimation / respirateurs / monitoring vital","Niveau":"Temps Zéro","Reglementaire":"Oui / très critique","Commentaire":"Charge critique nécessitant une continuité sans coupure. Pour un hôpital, cela implique une UPS locale en complément du GE de sécurité.","Critique_TZ_Local":True},
+    {"Famille":"Charges critiques exploitation","Fonction":"Serveurs critiques / contrôle-commande / supervision centrale","Niveau":"Temps Zéro","Reglementaire":"Selon usage","Commentaire":"Continuité sans interruption parfois nécessaire ; UPS locale recommandée hors MIL / AER.","Critique_TZ_Local":True},
+    {"Famille":"Charges critiques exploitation","Fonction":"Tour de contrôle / balisage / fonctions aéroportuaires critiques","Niveau":"Temps Zéro","Reglementaire":"Oui selon fonction","Commentaire":"Très forte criticité fonctionnelle.","Critique_TZ_Local":True},
+    {"Famille":"Exploitation","Fonction":"Froid / chambres froides / conservation","Niveau":"Secours","Reglementaire":"Non en général","Commentaire":"Continuité d'exploitation, mais pas forcément sécurité des personnes.","Critique_TZ_Local":False},
+    {"Famille":"Exploitation","Fonction":"Ventilation utile / climatisation utile / process","Niveau":"Secours","Reglementaire":"Non en général","Commentaire":"Important pour exploitation ou confort technique.","Critique_TZ_Local":False},
+    {"Famille":"Exploitation","Fonction":"Encaissement / informatique non vitale / exploitation bureautique","Niveau":"Secours","Reglementaire":"Non","Commentaire":"Continuité souhaitée sans être une fonction de sécurité.","Critique_TZ_Local":False},
+    {"Famille":"Exploitation","Fonction":"Vidéosurveillance / sûreté / anti-intrusion","Niveau":"Secours","Reglementaire":"Selon site","Commentaire":"Peut être important sans relever systématiquement de la sécurité incendie.","Critique_TZ_Local":False},
 ]
 df_fonctions = pd.DataFrame(FONCTIONS)
 
@@ -428,16 +476,16 @@ def verifier_choix_manuel(niveau_manuel, niveau_minimal):
     return NIVEAU_SCORE[niveau_manuel] >= NIVEAU_SCORE[niveau_minimal]
 
 # =========================================================
-# RECOMMANDATION INVERSEUR (sans courant)
+# RECOMMANDATION INVERSEUR
 # =========================================================
-CRITICITE_SCORE = {"Vie humaine": 3, "Dommages techniques / données": 2, "Pertes financières / exploitation": 1}
+CRITICITE_SCORE = {"Vie humaine":3, "Dommages techniques / données":2, "Pertes financières / exploitation":1}
 def criticite_dominante(criticites_selectionnees):
     if not criticites_selectionnees:
         return "Pertes financières / exploitation"
     max_score = 0
     dominante = "Pertes financières / exploitation"
     for c in criticites_selectionnees:
-        score = CRITICITE_SCORE.get(c, 0)
+        score = CRITICITE_SCORE.get(c,0)
         if score > max_score:
             max_score = score
             dominante = c
@@ -487,14 +535,14 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
         classe = "PC"
         notes.append("Une coupure < 50 ms ne peut pas être garantie par un inverseur mécanique seul. Une architecture complémentaire de type UPS / STS est nécessaire.")
     elif coupure == "50 ms à 2 s":
-        if groupe_ge in ["Sécurité", "Temps Zéro"]:
+        if groupe_ge in ["Sécurité","Temps Zéro"]:
             type_recommande = "ATSE"
             commande = "Automatique"
         elif groupe_ge == "Secours":
-            type_recommande = "ATSE" if criticite in ["Vie humaine", "Dommages techniques / données"] else "RTSE"
+            type_recommande = "ATSE" if criticite in ["Vie humaine","Dommages techniques / données"] else "RTSE"
         else:
             type_recommande = "RTSE"
-    else:  # > 2 s
+    else:
         if groupe_ge == "Temps Zéro":
             besoin_ups = True
             type_recommande = "ATSE"
@@ -540,7 +588,7 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
     if criticite == "Vie humaine":
         type_recommande = "ATSE"
         commande = "Automatique"
-        if transition in ["Fermée (sans coupure)", "Statique"] or coupure == "< 50 ms":
+        if transition in ["Fermée (sans coupure)","Statique"] or coupure == "< 50 ms":
             classe = "PC"
         notes.append("La criticité humaine impose une architecture de haute disponibilité.")
     elif criticite == "Dommages techniques / données":
@@ -550,14 +598,13 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
         if type_recommande == "MTSE":
             type_recommande = "RTSE"
 
-    # Classe par défaut
-    if transition in ["Fermée (sans coupure)", "Statique"] or groupe_ge == "Temps Zéro":
+    if transition in ["Fermée (sans coupure)","Statique"] or groupe_ge == "Temps Zéro":
         classe = "PC"
     elif type_recommande == "ATSE" and "PC" not in classe:
         classe = "CB"
     elif type_recommande == "RTSE" and "CB" not in classe and "PC" not in classe:
         classe = "CB"
-    if classe not in ["CC", "CB", "PC"]:
+    if classe not in ["CC","CB","PC"]:
         classe = "CB"
 
     alerte_manuel = ""
@@ -565,7 +612,7 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
         type_recommande = inverseur_force
         classe = classe_force
         incoherences = []
-        if coupure == "< 50 ms" and inverseur_force in ["MTSE", "RTSE"]:
+        if coupure == "< 50 ms" and inverseur_force in ["MTSE","RTSE"]:
             incoherences.append("Un MTSE ou RTSE seul ne convient pas pour une exigence < 50 ms.")
         if transition == "Fermée (sans coupure)" and inverseur_force != "ATSE":
             incoherences.append("La transition fermée exige un ATSE avec logique de synchronisation.")
@@ -666,7 +713,8 @@ if mode_choix == "Détermination automatique améliorée":
                 "niveau_final": niveau_final,
                 "details": justifs,
                 "justification_libre": "",
-                "ups_local_requis": ups_local_requis
+                "ups_local_requis": ups_local_requis,
+                "effectif_total": effectif_total   # <-- AJOUT
             }
             st.session_state.choix_confirme = False
             st.session_state.groupe_confirme = None
@@ -723,7 +771,8 @@ else:  # Mode manuel
                 "choix_conforme": conforme,
                 "details": justifs,
                 "justification_libre": justification_client,
-                "ups_local_requis": ups_local_requis
+                "ups_local_requis": ups_local_requis,
+                "effectif_total": effectif_total   # <-- AJOUT
             }
             st.session_state.choix_confirme = False
             st.session_state.groupe_confirme = None
@@ -756,8 +805,6 @@ if st.session_state.resultat_final is not None:
 
     if r["details"].get("remarque_ups"):
         st.markdown(f'<div class="ups-box"><h3>🔌 Remarque sur les charges critiques</h3><p>{r["details"]["remarque_ups"]}</p></div>', unsafe_allow_html=True)
-
-    # Pas de bloc "Choix manuel validé" ici (supprimé)
 
     st.markdown("### 🔓 Confirmation de la partie 1")
     st.info("Cliquez sur le bouton ci-dessous pour confirmer définitivement le groupe retenu et déverrouiller la partie 2.")
@@ -853,10 +900,43 @@ if st.session_state.get("choix_confirme", False) and st.session_state.get("group
         if st.session_state.get("inverseur_confirme", False) and st.session_state.get("inverseur_final") is not None:
             afficher_synthese_finale(st.session_state.groupe_confirme, st.session_state.inverseur_final)
 
+            # Bouton d'export PDF après la synthèse
+            col_pdf1, col_pdf2, col_pdf3 = st.columns([1,2,1])
+            with col_pdf2:
+                if st.button("📄 Exporter les résultats en PDF", use_container_width=True):
+                    r = st.session_state.resultat_final
+                    inv = st.session_state.inverseur_final
+                    entrees = {
+                        "Type ERP": r["erp_choice"],
+                        "Effectif total": r.get("effectif_total", "Non renseigné"),
+                        "Fonctions sélectionnées": ", ".join(r["fonctions_selectionnees"]) if r["fonctions_selectionnees"] else "Aucune",
+                        "Temps de coupure": r["temps_coupure"]
+                    }
+                    resultats_groupe = {
+                        "Niveau retenu": r["niveau_final"],
+                        "Justification ERP": r["details"]["erp"],
+                        "Analyse des fonctions": r["details"]["fonctions"] if r["mode"] != "Choix manuel contrôlé" else r["details"]["temps"]
+                    }
+                    resultats_inverseur = {
+                        "Type d'inverseur": inv["type_inverseur"],
+                        "Classe": inv["classe"],
+                        "Mode de commande": inv["mode_commande"],
+                        "Transition": inv["transition"],
+                        "Bypass": "Oui" if inv["bypass"] else "Non",
+                        "UPS locale": "Oui" if inv["besoin_ups"] else "Non",
+                        "STS": "Oui" if inv["besoin_sts"] else "Non"
+                    }
+                    href = generer_pdf(entrees, resultats_groupe, resultats_inverseur)
+                    st.markdown(href, unsafe_allow_html=True)
+                    st.success("Rapport PDF généré avec succès ! Cliquez sur le lien ci-dessus pour le télécharger.")
+
 else:
     st.markdown("---")
     st.markdown('<div class="warning-box"><h3>Partie 2 verrouillée</h3><p>Veuillez d\'abord confirmer le choix du groupe électrogène dans la partie 1 pour activer le choix de l\'inverseur.</p></div>', unsafe_allow_html=True)
 
+# =========================================================
+# NOTE IMPORTANTE
+# =========================================================
 st.markdown("""
 <div class="info-box">
     <b>Note importante :</b> cette interface constitue une <b>aide à la décision</b> fondée sur une logique construite
