@@ -32,7 +32,7 @@ if "choix_inverseur_resultat" not in st.session_state:
     st.session_state.choix_inverseur_resultat = None
 
 # =========================================================
-# CSS (version complète)
+# CSS (identique)
 # =========================================================
 st.markdown("""
 <style>
@@ -105,7 +105,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# BOUTON DE RÉINITIALISATION EN HAUT À DROITE
+# BOUTON DE RÉINITIALISATION
 # =========================================================
 col_reset1, col_reset2 = st.columns([6, 1])
 with col_reset2:
@@ -119,7 +119,7 @@ with col_reset2:
         st.rerun()
 
 # =========================================================
-# FONCTION DE GÉNÉRATION PDF (CORRIGÉE)
+# FONCTION PDF
 # =========================================================
 def generer_pdf(entrees, resultats_groupe, resultats_inverseur):
     pdf = FPDF()
@@ -137,7 +137,6 @@ def generer_pdf(entrees, resultats_groupe, resultats_inverseur):
         text = re.sub(r'<b>|</b>', '', text)
         text = re.sub(r'<br\s*/?>', ' ', text)
         text = re.sub(r'<[^>]+>', '', text)
-        # Replace multiple spaces
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
 
@@ -227,10 +226,10 @@ BASE_ERP = [
 df_erp = pd.DataFrame(BASE_ERP, columns=["Code_type","Designation","Niveau_Min_Indicatif","Justification"])
 
 FONCTIONS = [
-    {"Famille":"Sécurité des personnes","Fonction":"Éclairage de sécurité","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonction directement liée à l'évacuation et à la sécurité des personnes.","Critique_TZ_Local":False},
-    {"Famille":"Sécurité des personnes","Fonction":"SSI / alarme incendie / CMSI / sonorisation d'évacuation","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonction de sécurité incendie.","Critique_TZ_Local":False},
-    {"Famille":"Sécurité des personnes","Fonction":"Désenfumage / extraction de fumées","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Équipement participant directement à la sécurité.","Critique_TZ_Local":False},
-    {"Famille":"Sécurité des personnes","Fonction":"Pompes incendie / surpresseurs incendie","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"Fonctions de lutte incendie.","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"Éclairage de sécurité","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"SSI / alarme incendie / CMSI / sonorisation d'évacuation","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"Désenfumage / extraction de fumées","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"","Critique_TZ_Local":False},
+    {"Famille":"Sécurité des personnes","Fonction":"Pompes incendie / surpresseurs incendie","Niveau":"Sécurité","Reglementaire":"Oui","Commentaire":"","Critique_TZ_Local":False},
     {"Famille":"Charges médicales / vitales","Fonction":"Bloc opératoire / réanimation / respirateurs / monitoring vital","Niveau":"Temps Zéro","Reglementaire":"Oui / très critique","Commentaire":"Charge critique nécessitant une continuité sans coupure. Pour un hôpital, cela implique une UPS locale en complément du GE de sécurité.","Critique_TZ_Local":True},
     {"Famille":"Charges critiques exploitation","Fonction":"Serveurs critiques / contrôle-commande / supervision centrale","Niveau":"Temps Zéro","Reglementaire":"Selon usage","Commentaire":"Continuité sans interruption parfois nécessaire ; UPS locale recommandée hors MIL / AER.","Critique_TZ_Local":True},
     {"Famille":"Charges critiques exploitation","Fonction":"Tour de contrôle / balisage / fonctions aéroportuaires critiques","Niveau":"Temps Zéro","Reglementaire":"Oui selon fonction","Commentaire":"Très forte criticité fonctionnelle.","Critique_TZ_Local":True},
@@ -292,7 +291,7 @@ def render_inverseur_badges(inv):
     <span class="mini-badge">STS : {"Oui" if inv["besoin_sts"] else "Non"}</span>
     """
 
-def afficher_bloc_resultat(titre, type_groupe, details_erp, details_fonctions):
+def afficher_bloc_resultat(titre, type_groupe, details_erp, details_fonctions_sans_liste):
     badge_html = get_badge_html(type_groupe)
     result_class = get_result_box_class(type_groupe)
     explication = expliquer_groupe(type_groupe)
@@ -310,7 +309,7 @@ def afficher_bloc_resultat(titre, type_groupe, details_erp, details_fonctions):
         <h4>Analyse ERP</h4>
         <p>{details_erp}</p>
         <h4>Analyse des fonctions</h4>
-        <p>{details_fonctions}</p>
+        <p>{details_fonctions_sans_liste}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -338,7 +337,7 @@ def afficher_synthese_finale(groupe_choisi, inverseur_choisi):
     """, unsafe_allow_html=True)
 
 # =========================================================
-# REGLES METIER
+# REGLES METIER (retour à un seul type ERP)
 # =========================================================
 def determiner_categorie_erp(code, effectif_total):
     if code in TYPES_SPECIAUX:
@@ -384,8 +383,7 @@ def niveau_fonctions_selectionnees(fonctions_selectionnees, code):
                 justifs.append(f"• {fonction} → {niveau}")
             if score > max_score:
                 max_score = score
-    fonctions_list = "<br>".join([f"• {f}" for f in fonctions_selectionnees])
-    justifs.append(f"<br><b>Fonctions sélectionnées :</b><br>{fonctions_list}")
+    # Ne pas ajouter la liste des fonctions
     return SCORE_NIVEAU[max_score], "<br>".join(justifs), ups_local_necessaire, []
 
 def ajuster_par_temps_coupure(niveau_actuel, temps_coupure, code):
@@ -400,14 +398,14 @@ def ajuster_par_temps_coupure(niveau_actuel, temps_coupure, code):
             score = max(score, NIVEAU_SCORE["Sécurité"])
             justification = "Aucune coupure admissible (0 s) : le niveau global retenu est Sécurité, avec UPS / ASI séparée pour les charges non interruptibles."
             ups_local_temps = True
-    elif temps_coupure == "Coupure très courte admissible (comprise entre 10 s et 15 s)":
+    elif temps_coupure == "Coupure très courte admissible (0 s < t ≤ 10 s)":
         score = max(score, NIVEAU_SCORE["Sécurité"])
-        justification = "Une coupure très courte admissible impose au minimum un niveau Sécurité."
-    elif temps_coupure == "Coupure courte admissible (≤ 15 s)":
+        justification = "Une coupure très courte (≤ 10 s) impose au minimum un niveau Sécurité."
+    elif temps_coupure == "Coupure courte admissible (10 s < t ≤ 15 s)":
         score = max(score, NIVEAU_SCORE["Secours"])
-        justification = "Une coupure courte admissible impose au minimum un niveau Secours."
-    else:
-        justification = "Une coupure longue admissible (> 15 s) n'impose pas de relèvement particulier."
+        justification = "Une coupure courte (≤ 15 s) impose au minimum un niveau Secours."
+    else:  # coupure longue > 15 s
+        justification = "Une coupure longue (> 15 s) n'impose pas de niveau minimal particulier."
     return SCORE_NIVEAU[score], justification, ups_local_temps
 
 def niveau_final_automatique(code, fonctions_selectionnees, temps_coupure):
@@ -443,12 +441,12 @@ def niveau_minimal_mode_manuel(code, temps_coupure):
     if temps_coupure == "Coupure longue admissible (> 15 s)":
         niveau_recommande = "Aucun"
         justif_temps = "Une coupure longue admissible (> 15 s) n'impose pas de niveau minimal particulier."
-    elif temps_coupure == "Coupure courte admissible (≤ 15 s)":
+    elif temps_coupure == "Coupure courte admissible (10 s < t ≤ 15 s)":
         niveau_recommande = "Secours"
         justif_temps = "Une coupure courte admissible (≤ 15 s) conduit à recommander un groupe de Secours."
-    elif temps_coupure == "Coupure très courte admissible (comprise entre 10 s et 15 s)":
+    elif temps_coupure == "Coupure très courte admissible (0 s < t ≤ 10 s)":
         niveau_recommande = "Sécurité"
-        justif_temps = "Une coupure très courte admissible (comprise entre 10 s et 15 s) conduit à recommander un groupe de Sécurité."
+        justif_temps = "Une coupure très courte admissible (≤ 10 s) conduit à recommander un groupe de Sécurité."
     elif temps_coupure == "Aucune coupure admissible (0 s)":
         if code in TYPES_TEMPS_ZERO_GLOBAL:
             niveau_recommande = "Temps Zéro"
@@ -476,7 +474,7 @@ def verifier_choix_manuel(niveau_manuel, niveau_minimal):
     return NIVEAU_SCORE[niveau_manuel] >= NIVEAU_SCORE[niveau_minimal]
 
 # =========================================================
-# RECOMMANDATION INVERSEUR
+# RECOMMANDATION INVERSEUR (identique)
 # =========================================================
 CRITICITE_SCORE = {"Vie humaine":3, "Dommages techniques / données":2, "Pertes financières / exploitation":1}
 def criticite_dominante(criticites_selectionnees):
@@ -663,7 +661,7 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
     }
 
 # =========================================================
-# PARTIE 1 : CHOIX DU GROUPE ELECTROGENE
+# PARTIE 1 : CHOIX DU GROUPE ELECTROGENE (un seul type ERP)
 # =========================================================
 st.markdown("""
 <div class="info-box">
@@ -689,17 +687,22 @@ if mode_choix == "Détermination automatique améliorée":
             effectif_total = 0
         else:
             effectif_min = EFFECTIF_MIN_VALABLE.get(code, 1)
-            st.markdown(f'<div class="seuil-info-box">ℹ️ <b>Effectif minimal valable pour ce type ERP ({code}) :</b> {effectif_min} personnes<br>En dessous de ce seuil, l\'établissement est classé en 5e catégorie mais reste soumis aux règles ERP.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="seuil-info-box">ℹ️ <b>Effectif minimal valable :</b> {effectif_min} personnes</div>', unsafe_allow_html=True)
             effectif_total = st.number_input("Effectif total admissible", min_value=0, step=1, value=0)
     effectif_invalide = (code not in TYPES_SPECIAUX) and (effectif_total == 0)
     if effectif_invalide:
-        st.markdown('<div class="impossible-box"><h3>🚫 Effectif invalide — Analyse impossible</h3><p>Un effectif de <b>0</b> ne permet pas de réaliser une analyse réglementaire ERP.</p><p>Veuillez saisir l\'effectif total admissible de l\'établissement (nombre de personnes) pour que l\'outil puisse déterminer la catégorie ERP et le niveau de groupe adapté.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="impossible-box"><h3>🚫 Effectif invalide — Analyse impossible</h3><p>Un effectif de <b>0</b> ne permet pas de réaliser une analyse réglementaire ERP.</p><p>Veuillez saisir un effectif valable.</p></div>', unsafe_allow_html=True)
     else:
         categorie, justification_categorie = determiner_categorie_erp(code, effectif_total)
         st.markdown("### 2️⃣ Fonctions réellement à alimenter")
-        fonctions_selectionnees = st.multiselect("Sélectionnez les fonctions / charges concernées", options=df_fonctions["Fonction"].tolist(), help="Plusieurs fonctions peuvent être retenues. Le niveau final suit la criticité la plus forte autorisée par la logique globale du site.")
+        fonctions_selectionnees = st.multiselect("Sélectionnez les fonctions / charges concernées", options=df_fonctions["Fonction"].tolist(), help="Plusieurs fonctions peuvent être retenues.")
         st.markdown("### 3️⃣ Continuité admissible")
-        temps_coupure = st.radio("Temps de coupure maximal admissible pour les charges considérées", ["Coupure longue admissible (> 15 s)", "Coupure courte admissible (≤ 15 s)", "Coupure très courte admissible (comprise entre 10 s et 15 s)", "Aucune coupure admissible (0 s)"], horizontal=False)
+        temps_coupure = st.radio("Temps de coupure maximal admissible pour les charges considérées", [
+            "Coupure longue admissible (> 15 s)",
+            "Coupure courte admissible (10 s < t ≤ 15 s)",
+            "Coupure très courte admissible (0 s < t ≤ 10 s)",
+            "Aucune coupure admissible (0 s)"
+        ], horizontal=False)
         if st.button("Lancer la détermination", use_container_width=True):
             niveau_final, justifs, niveau_erp_indicatif, niveau_fct, ups_local_requis = niveau_final_automatique(code, fonctions_selectionnees, temps_coupure)
             st.session_state.resultat_final = {
@@ -714,7 +717,7 @@ if mode_choix == "Détermination automatique améliorée":
                 "details": justifs,
                 "justification_libre": "",
                 "ups_local_requis": ups_local_requis,
-                "effectif_total": effectif_total   # <-- AJOUT
+                "effectif_total": effectif_total
             }
             st.session_state.choix_confirme = False
             st.session_state.groupe_confirme = None
@@ -734,17 +737,22 @@ else:  # Mode manuel
             effectif_total = 0
         else:
             effectif_min = EFFECTIF_MIN_VALABLE.get(code, 1)
-            st.markdown(f'<div class="seuil-info-box">ℹ️ <b>Effectif minimal valable pour ce type ERP ({code}) :</b> {effectif_min} personnes<br>En dessous de ce seuil, l\'établissement est classé en 5e catégorie mais reste soumis aux règles ERP.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="seuil-info-box">ℹ️ <b>Effectif minimal valable :</b> {effectif_min} personnes</div>', unsafe_allow_html=True)
             effectif_total = st.number_input("Effectif total admissible", min_value=0, step=1, value=0, key="manual_eff")
     effectif_invalide = (code not in TYPES_SPECIAUX) and (effectif_total == 0)
     if effectif_invalide:
-        st.markdown('<div class="impossible-box"><h3>🚫 Effectif invalide — Analyse impossible</h3><p>Un effectif de <b>0</b> ne permet pas de réaliser une analyse réglementaire ERP.</p><p>Veuillez saisir l\'effectif total admissible de l\'établissement (nombre de personnes) pour que l\'outil puisse déterminer la catégorie ERP et le niveau de groupe adapté.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="impossible-box"><h3>🚫 Effectif invalide — Analyse impossible</h3><p>Un effectif de <b>0</b> ne permet pas de réaliser une analyse réglementaire ERP.</p><p>Veuillez saisir un effectif valable.</p></div>', unsafe_allow_html=True)
     else:
         categorie, justification_categorie = determiner_categorie_erp(code, effectif_total)
         fonctions_selectionnees = []
-        temps_coupure = st.radio("Temps de coupure maximal admissible", ["Coupure longue admissible (> 15 s)", "Coupure courte admissible (≤ 15 s)", "Coupure très courte admissible (comprise entre 10 s et 15 s)", "Aucune coupure admissible (0 s)"], key="manual_time")
+        temps_coupure = st.radio("Temps de coupure maximal admissible", [
+            "Coupure longue admissible (> 15 s)",
+            "Coupure courte admissible (10 s < t ≤ 15 s)",
+            "Coupure très courte admissible (0 s < t ≤ 10 s)",
+            "Aucune coupure admissible (0 s)"
+        ], key="manual_time")
         niveau_minimal, justifs, niveau_erp_indicatif, niveau_fct, ups_local_requis = niveau_minimal_mode_manuel(code, temps_coupure)
-        st.markdown(f'<div class="card"><h3>Référence minimale issue de l\'analyse</h3><p><b>Niveau minimal recommandé :</b> {niveau_minimal}</p><p class="small-note">Le choix manuel peut être égal ou supérieur à ce niveau. S\'il est inférieur, l\'outil génère une alerte.</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card"><h3>Référence minimale issue de l\'analyse</h3><p><b>Niveau minimal recommandé :</b> {niveau_minimal}</p><p class="small-note">Le choix manuel peut être égal ou supérieur à ce niveau.</p></div>', unsafe_allow_html=True)
         groupe_manuel = st.selectbox("Choisissez directement le niveau de groupe électrogène", ["Aucun", "Secours", "Sécurité", "Temps Zéro"])
         justification_client = st.text_area("Justification / remarque du client", placeholder="Exemple : le client impose un niveau supérieur pour des raisons d'exploitation critique.")
         if groupe_manuel == "Aucun":
@@ -755,7 +763,7 @@ else:  # Mode manuel
             if conforme:
                 st.success("Le choix manuel est cohérent avec le niveau minimal issu de l'analyse.")
             else:
-                st.warning("Le choix manuel est inférieur au niveau minimal déduit de l'analyse. Vérification réglementaire / fonctionnelle recommandée.")
+                st.warning("Le choix manuel est inférieur au niveau minimal déduit de l'analyse.")
             valider_desactive = False
         if st.button("Valider le choix manuel", use_container_width=True, disabled=valider_desactive):
             st.session_state.resultat_final = {
@@ -772,7 +780,7 @@ else:  # Mode manuel
                 "details": justifs,
                 "justification_libre": justification_client,
                 "ups_local_requis": ups_local_requis,
-                "effectif_total": effectif_total   # <-- AJOUT
+                "effectif_total": effectif_total
             }
             st.session_state.choix_confirme = False
             st.session_state.groupe_confirme = None
@@ -781,7 +789,7 @@ else:  # Mode manuel
             st.session_state.choix_inverseur_resultat = None
 
 # =========================================================
-# AFFICHAGE RESULTAT (GROUPE)
+# AFFICHAGE RESULTAT (GROUPE) - adapté
 # =========================================================
 if st.session_state.resultat_final is not None:
     r = st.session_state.resultat_final
@@ -821,7 +829,7 @@ if st.session_state.resultat_final is not None:
         st.markdown('<div class="lock-box"><h3>Partie 2 encore verrouillée</h3><p>Veuillez confirmer le groupe retenu pour activer le choix de l\'inverseur.</p></div>', unsafe_allow_html=True)
 
 # =========================================================
-# PARTIE 2 : CHOIX DE L'INVERSEUR DE SOURCES
+# PARTIE 2 : CHOIX DE L'INVERSEUR DE SOURCES (identique)
 # =========================================================
 if st.session_state.get("choix_confirme", False) and st.session_state.get("groupe_confirme") is not None:
     st.markdown("---")
@@ -834,7 +842,7 @@ if st.session_state.get("choix_confirme", False) and st.session_state.get("group
         transition_inv = st.selectbox("Type de transition souhaité", ["Ouverte", "Retardée (I-O-II)", "Fermée (sans coupure)", "Statique"], index=1, key="transition_inv")
         maintenance_inv = st.radio("Maintenance sans coupure requise ?", ["Non", "Oui"], horizontal=True, key="maintenance_inv")
     with col_b:
-        criticites_inv = st.multiselect("Niveau de criticité (choix multiple possible)", options=["Vie humaine", "Dommages techniques / données", "Pertes financières / exploitation"], default=["Pertes financières / exploitation"], key="criticite_inv", help="Sélectionnez un ou plusieurs niveaux de criticité. Le niveau le plus élevé sera retenu pour la recommandation.")
+        criticites_inv = st.multiselect("Niveau de criticité (choix multiple possible)", options=["Vie humaine", "Dommages techniques / données", "Pertes financières / exploitation"], default=["Pertes financières / exploitation"], key="criticite_inv", help="Sélectionnez un ou plusieurs niveaux de criticité.")
         if len(criticites_inv) > 1:
             dominant = criticite_dominante(criticites_inv)
             st.markdown(f'<div class="seuil-info-box">ℹ️ Plusieurs criticités sélectionnées. Niveau dominant retenu : <b>{dominant}</b></div>', unsafe_allow_html=True)
