@@ -654,7 +654,7 @@ def afficher_synthese_finale(groupe_choisi, inverseur_choisi):
     """, unsafe_allow_html=True)
 
 # =========================================================
-# LOGIQUE METIER
+# LOGIQUE METIER (identique au second code)
 # =========================================================
 def determiner_categorie_erp(code, effectif_total):
     if code in TYPES_SPECIAUX:
@@ -786,7 +786,7 @@ def verifier_choix_manuel(niveau_manuel, niveau_minimal):
     return NIVEAU_SCORE[niveau_manuel] >= NIVEAU_SCORE[niveau_minimal]
 
 # =========================================================
-# INVERSEUR
+# INVERSEUR (identique au second code)
 # =========================================================
 CRITICITE_SCORE = {"Vie humaine":3, "Dommages techniques / données":2, "Pertes financières / exploitation":1}
 
