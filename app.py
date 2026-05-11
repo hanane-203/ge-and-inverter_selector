@@ -1014,7 +1014,7 @@ if mode_choix == "Détermination automatique améliorée":
                 "niveau_fonctions": niveau_fct,
                 "niveau_final": niveau_final,
                 "details": justifs, "justification_libre": "",
-                "ups_local_requis": ups_local_requis, "effectif_total": effectif_total
+             "effectif_total": effectif_total
             }
             for k in ["choix_confirme","inverseur_confirme"]:
                 st.session_state[k] = False
@@ -1029,7 +1029,7 @@ else:  # Manuel
         code = erp_types[erp_choice]
     with col2:
         if code in TYPES_SPECIAUX:
-            st.info("Pour ce type, la catégorie n'est pas utilisée comme pivot principal dans cette version.")
+            st.info("Pour ce type, la catégorie n'est pas utilisée comme pivot principal .")
             effectif_total = 0
         else:
             effectif_min = EFFECTIF_MIN_VALABLE.get(code, 1)
