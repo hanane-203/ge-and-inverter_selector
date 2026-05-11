@@ -786,7 +786,7 @@ def verifier_choix_manuel(niveau_manuel, niveau_minimal):
     return NIVEAU_SCORE[niveau_manuel] >= NIVEAU_SCORE[niveau_minimal]
 
 # =========================================================
-# INVERSEUR (identique au second code)
+# INVERSEUR 
 # =========================================================
 CRITICITE_SCORE = {"Vie humaine":3, "Dommages techniques / données":2, "Pertes financières / exploitation":1}
 
@@ -834,7 +834,7 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
     if coupure == "< 50 ms":
         besoin_ups = True; besoin_sts = True
         type_recommande = "ATSE"; commande = "Automatique"; classe = "PC"
-        notes.append("Une coupure < 50 ms ne peut pas être garantie par un inverseur mécanique seul. Une architecture complémentaire UPS / STS est nécessaire.")
+       
     elif coupure == "50 ms à 2 s":
         if groupe_ge in ["Sécurité","Temps Zéro"]:
             type_recommande = "ATSE"; commande = "Automatique"
