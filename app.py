@@ -376,7 +376,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# FONCTION PDF — 100% Français, sans débordement
+# FONCTION PDF 
 # =========================================================
 def generer_pdf(entrees, resultats_groupe, resultats_inverseur):
     pdf = FPDF()
@@ -654,7 +654,7 @@ def afficher_synthese_finale(groupe_choisi, inverseur_choisi):
     """, unsafe_allow_html=True)
 
 # =========================================================
-# LOGIQUE METIER (identique au second code)
+# LOGIQUE METIER 
 # =========================================================
 def determiner_categorie_erp(code, effectif_total):
     if code in TYPES_SPECIAUX:
@@ -941,7 +941,7 @@ def recommander_inverseur(groupe_ge, coupure, transition, maintenance_sans_coupu
     }
 
 # =========================================================
-# PARTIE 1 — FORMULAIRE (conteneur unifié)
+# PARTIE 1 — FORMULAIRE
 # =========================================================
 st.markdown('<div class="ps-form-wrap">', unsafe_allow_html=True)
 
